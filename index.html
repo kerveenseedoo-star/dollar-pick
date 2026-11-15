@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dollar Pick Syndicate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#F1F3EE; --surface:#FFFFFF; --ink:#15201A; --muted:#5A685F; --line:#D3DAD1; --tint:#E4ECE5;
+  --turf:#1D6F45; --turf-ink:#FFFFFF; --flag:#E2B935; --flag-ink:#2B2306;
+  --good:#1D6F45; --warn:#9A6200; --bad:#B0281F;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0E1411; --surface:#161F1A; --ink:#E4EBE6; --muted:#97A69D; --line:#2A3730; --tint:#1C2922;
+  --turf:#46BC82; --turf-ink:#06140D; --flag:#E2B935; --flag-ink:#2B2306;
+  --good:#5ACB92; --warn:#E3A83A; --bad:#F07A70; color-scheme:dark }}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+.wrap{max-width:880px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.01em;text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:2.4rem;text-transform:uppercase}
+h2{font-size:1.5rem;text-transform:uppercase}
+h3{font-size:1.15rem}
+p{margin:0}
+a{color:var(--turf)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.label{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+header.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;padding-block:28px 16px;border-bottom:2px solid var(--ink)}
+header.top .rule{font-family:var(--mono);font-size:.82rem;color:var(--muted);margin-top:6px}
+.me{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;padding-block:10px;border-bottom:1px solid var(--line);margin-bottom:24px}
+nav.tabs a{font-family:var(--display);font-weight:600;font-size:1.05rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:4px;white-space:nowrap}
+nav.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+nav.tabs a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--flag);outline-offset:2px}
+#view{display:flex;flex-direction:column;gap:28px}
+section{display:flex;flex-direction:column;gap:12px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.between{justify-content:space-between}
+.pill{display:inline-block;font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill.good{color:var(--good)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)} .pill.neutral{color:var(--muted)}
+.pill.solid{background:var(--flag);color:var(--flag-ink);border-color:var(--flag)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.chip{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:6px 10px;cursor:pointer;white-space:nowrap;display:flex;gap:6px;align-items:center}
+.chip[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);font-weight:600}
+button.btn{font:inherit;font-weight:600;font-size:.9rem;border-radius:6px;padding:8px 14px;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--bg)}
+button.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+button.btn.go{background:var(--turf);border-color:var(--turf);color:var(--turf-ink)}
+button.btn.armed{background:var(--flag);border-color:var(--flag);color:var(--flag-ink)}
+button.btn.small{padding:4px 10px;font-size:.8rem}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+button.pick{font:inherit;font-size:.88rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:7px 10px;cursor:pointer}
+button.pick:hover:not(:disabled){border-color:var(--turf);color:var(--turf)}
+button.pick:disabled{opacity:.45;cursor:not-allowed}
+button.x{font:inherit;background:none;border:0;color:var(--muted);cursor:pointer;padding:2px 6px;font-size:1rem}
+input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0}
+input[type="number"].goal{width:3.6em;text-align:center;font-family:var(--mono)}
+form.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+form.grid label,.field{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:500}
+form.grid .wide{grid-column:1/-1}
+label.check{flex-direction:row !important;align-items:flex-start;gap:8px;grid-column:1/-1;font-weight:400}
+.callout{border:1px solid var(--line);border-left:4px solid var(--flag);background:var(--surface);padding:12px 14px;border-radius:6px;display:flex;flex-direction:column;gap:6px}
+.callout.bad{border-left-color:var(--bad)}
+.empty{border:1px dashed var(--line);border-radius:8px;padding:22px;text-align:center;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.clock{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.clock div{background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.clock b{font-family:var(--mono);font-weight:600;font-size:1rem}
+.meter{height:6px;border-radius:3px;background:var(--tint);overflow:hidden;margin-top:4px}
+.meter i{display:block;height:100%;background:var(--turf)}
+.meter.full i{background:var(--warn)}
+.fixture{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;align-items:center;padding-block:14px;border-bottom:1px solid var(--line)}
+.fixture .teams{font-family:var(--display);font-size:1.35rem;font-weight:600;line-height:1.1}
+.fixture .teams span{color:var(--muted);font-weight:500;font-size:1rem;margin-inline:6px}
+.fixture .markets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
+@media (max-width:640px){.fixture{grid-template-columns:1fr}.fixture .markets{justify-content:flex-start}}
+.slip{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:18px 16px 14px;
+  background-image:radial-gradient(circle at 8px -2px,var(--bg) 6px,transparent 6.5px);background-size:16px 10px;background-repeat:repeat-x}
+.slip ol{list-style:none;margin:0;padding:0}
+.slip li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.slip li.void{opacity:.55}
+.slip .total{display:flex;justify-content:space-between;padding-top:10px;font-family:var(--mono);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.stats div{background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.stats b{font-family:var(--mono);font-size:1.25rem;font-weight:600}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--tint)}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+tr.void td{color:var(--muted);text-decoration:line-through}
+.steps{list-style:none;margin:0 0 0 11px;padding:0;display:flex;flex-direction:column;border-left:2px solid var(--line)}
+.step{position:relative;padding:0 0 22px 24px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.step::before{content:attr(data-n);position:absolute;left:-13px;top:0;width:24px;height:24px;border-radius:50%;background:var(--bg);border:2px solid var(--line);font:600 .75rem/20px var(--mono);text-align:center;color:var(--muted)}
+.step.done::before{content:"✓";background:var(--turf);border-color:var(--turf);color:var(--turf-ink)}
+.step.now::before{border-color:var(--flag);background:var(--flag);color:var(--flag-ink)}
+.step.later{opacity:.55}
+pre.text{white-space:pre-wrap;background:var(--tint);border-radius:6px;padding:12px 14px;font-size:.85rem;margin:0;user-select:all}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;font-size:.9rem;max-width:calc(100% - 32px);z-index:20}
+@media (prefers-reduced-motion:no-preference){button,.chip{transition:background-color .15s,border-color .15s,color .15s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Dollar Pick Syndicate</h1>
+      <p class="rule" id="rule">$1 per pick on any William Hill fixture</p>
+    </div>
+    <div class="me" id="me"><span class="pill neutral">Connecting…</span></div>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Sections" hidden>
+    <a href="#bet" data-tab="bet">Place picks</a>
+    <a href="#list" data-tab="list">Bet list</a>
+    <a href="#players" data-tab="players">Players</a>
+    <a href="#organiser" data-tab="organiser" hidden>Organiser</a>
+  </nav>
+  <main id="view"><div class="empty">Loading the syndicate…</div></main>
+</div>
+<div id="toast" hidden></div>
+
+<script>
+/* ===== Configuration: your Supabase project. Only the public (publishable) key belongs here. ===== */
+const SUPABASE_URL = 'https://rsdzbcaogbvhklxgifhf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_nVw7e6TF5Z-rebzio6FeOg_NCsL6Ech';
+
+const STAKE = 1;
+const WH_FOOTBALL = 'https://sports.williamhill.com/betting/en-gb/football';
+const MY_TZ = (()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }catch(_){ return 'UTC'; } })();
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const S = {
+  session:null, uid:null, me:null, owner:false,
+  players:{}, approvals:{}, kyc:{}, bets:{}, days:{}, settings:{},
+  load:'loading', loadError:'', recovery:false, authMsg:'', tab:'bet', date:null,
+  draft:{fx:{}, f:{}, goals:{}}, armed:null, slipText:null
+};
+const cfg = () => ({sharePct:50, placeTime:'08:00', tz:'Indian/Mauritius', bufferH:1, cap:50, ...S.settings});
+
+/* ---------- helpers ---------- */
+function h(tag, props, ...kids){
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(props||{})){
+    if (v==null || v===false) continue;
+    if (k==='class') el.className = v;
+    else if (k==='text') el.textContent = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (typeof v==='boolean' || k==='value') el[k] = v;
+    else el.setAttribute(k, v);
+  }
+  for (const c of kids.flat(Infinity)) if (c!=null && c!==false) el.append(c instanceof Node ? c : String(c));
+  return el;
+}
+const money = n => (n<0?'−$':'$') + Math.abs(n).toFixed(2);
+const localToday = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const fmtDate = id => new Date(id+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
+const fmtWhen = ms => new Date(ms).toLocaleString(undefined,{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+/* Same normalisation as public.fx_key() in migration.sql */
+const slug = s => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+const fxKey = fx => fx.key || (slug(fx.home)+'_v_'+slug(fx.away));
+const fxLabel = fx => fx.home+' v '+fx.away;
+const koOf = fx => fx.ko || 0;
+const fxMeta = fx => [fx.comp, koOf(fx)?('Kick-off '+fmtWhen(koOf(fx))):''].filter(Boolean).join(' · ');
+function whLink(s){ if(!s) return ''; try{ const u=new URL(s); if(u.protocol==='https:' && (u.hostname==='williamhill.com'||u.hostname.endsWith('.williamhill.com'))) return u.href; }catch(_){} return null; }
+function ageFrom(dob){ if(!dob) return null; const b=new Date(dob+'T12:00:00'), n=new Date(); let a=n.getFullYear()-b.getFullYear(); const m=n.getMonth()-b.getMonth(); if(m<0||(m===0&&n.getDate()<b.getDate())) a--; return a; }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,4500); }
+function arm(key, action){ if (S.armed===key){ S.armed=null; action(); } else { S.armed=key; render(); setTimeout(()=>{ if(S.armed===key){ S.armed=null; render(); } },5000); } }
+
+/* Every change goes through the database, one at a time, then the page reloads its data. */
+let queue = Promise.resolve();
+function run(fn, ok){
+  queue = queue.then(async()=>{
+    try{ const r = await fn(); if(r && r.error) throw r.error; if(ok) toast(ok); }
+    catch(e){ toast(cleanError(e)); }
+    await loadAll();
+  });
+  return queue;
+}
+function cleanError(e){
+  const m = e?.message || String(e);
+  if (/relation .* does not exist|could not find the (table|function)/i.test(m)) return 'The database is not set up yet: run migration.sql in Supabase.';
+  if (/row-level security|permission denied/i.test(m)) return 'You are not allowed to do that.';
+  return m;
+}
+
+/* ---------- time zones: the organiser's daily placement time ---------- */
+function tzParts(tz, ms){
+  const f=new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  return Object.fromEntries(f.formatToParts(new Date(ms)).map(x=>[x.type,x.value]));
+}
+function tzOffsetMin(tz, ms){ const p=tzParts(tz,ms); return (Date.UTC(+p.year,+p.month-1,+p.day,+p.hour%24,+p.minute,+p.second)-ms)/60000; }
+function zoned(dateStr, timeStr, tz){ const guess=Date.parse(dateStr+'T'+timeStr+':00Z'); let t=guess-tzOffsetMin(tz,guess)*60000; t=guess-tzOffsetMin(tz,t)*60000; return t; }
+function tzToday(tz){ const p=tzParts(tz,Date.now()); return p.year+'-'+p.month+'-'+p.day; }
+function addDays(d,n){ const t=new Date(d+'T12:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); }
+function lockAt(batch){ const c=cfg(); try{ return zoned(batch,c.placeTime,c.tz); }catch(_){ return zoned(batch,c.placeTime,'UTC'); } }
+function nextBatch(){ const c=cfg(); let d; try{ d=tzToday(c.tz); }catch(_){ d=tzToday('UTC'); } if(lockAt(d)<=Date.now()) d=addDays(d,1); return d; }
+function earliestKickoff(batch){ return lockAt(batch) + cfg().bufferH*3600000; }
+
+function statusOf(uid){ const s=S.approvals[uid]; return (!s || s==='new') ? 'unregistered' : s; }
+function pseudo(uid){ return S.players[uid]?.pseudo || 'Unknown player'; }
+function dayStatus(b){ const st=S.days[b]?.status; if(st && st!=='open') return st; return Date.now()>=lockAt(b) ? 'locked' : 'open'; }
+function livePicks(b){
+  const out={};
+  for (const [uid,bt] of Object.entries(S.bets)){
+    if (statusOf(uid)!=='approved') continue;
+    const p=bt?.days?.[b]; if (p?.length) out[uid]=p;
+  }
+  return out;
+}
+const rawPicks = b => livePicks(b);   // the database refuses changes after the lock, so live = locked
+const countPicks = map => Object.values(map).reduce((s,l)=>s+l.length,0);
+function allDates(){
+  const nb=nextBatch(); const s=new Set([nb]);
+  for (const [d,doc] of Object.entries(S.days)) if((doc.status&&doc.status!=='open') || countPicks(livePicks(d))) s.add(d);
+  for (const bt of Object.values(S.bets)) for (const [d,l] of Object.entries(bt?.days||{})) if(l?.length) s.add(d);
+  return [...s].sort().reverse();
+}
+function ensureDate(){ if(!S.date || !allDates().includes(S.date)) S.date=nextBatch(); }
+function excludedSet(b){ return S.days[b]?.excluded || {}; }
+function effective(b){
+  const ex=excludedSet(b), out={};
+  for (const [u,l] of Object.entries(rawPicks(b))){ const k=l.filter(p=>!ex[fxKey(p.fx)]); if(k.length) out[u]=k; }
+  return out;
+}
+function fixturesFor(b){
+  const m=new Map();
+  for (const l of Object.values(rawPicks(b))) for (const p of l){ const k=fxKey(p.fx); if(!m.has(k)) m.set(k,{fx:p.fx,count:0}); m.get(k).count++; }
+  for (const p of (S.bets[S.uid]?.days?.[b]||[])){ const k=fxKey(p.fx); if(!m.has(k)) m.set(k,{fx:p.fx,count:0}); }
+  for (const fx of (S.draft.fx[b]||[])){ const k=fxKey(fx); if(!m.has(k)) m.set(k,{fx,count:0}); }
+  return m;
+}
+function pickWhat(p){ return p.market==='score' ? 'Correct score '+p.sel.replace('-','–') : p.market==='draw' ? 'Draw' : (p.sel==='home'?p.fx.home:p.fx.away)+' to win'; }
+function consolidate(map){
+  const g=new Map();
+  for (const [uid,picks] of Object.entries(map)) for (const p of picks){
+    const k=fxKey(p.fx)+'|'+p.market+'|'+p.sel;
+    if(!g.has(k)) g.set(k,{...p, count:0, who:[]});
+    const e=g.get(k); e.count++; e.who.push(uid);
+  }
+  return [...g.values()].sort((a,b)=> (koOf(a.fx)-koOf(b.fx)) || fxLabel(a.fx).localeCompare(fxLabel(b.fx)) || (b.count-a.count));
+}
+function settlement(map, returns, pct){
+  const bettors = Object.keys(map).filter(u=>map[u]?.length);
+  const picks = bettors.reduce((s,u)=>s+map[u].length,0);
+  const stakes = picks*STAKE;
+  const profit = +(returns - stakes).toFixed(2);
+  const pool = profit>0 ? profit*pct/100 : 0;
+  const perHead = bettors.length ? Math.floor(pool/bettors.length*100)/100 : 0;
+  const organiser = +(profit - perHead*bettors.length).toFixed(2);
+  return {bettors, picks, stakes, profit, pool, perHead, organiser};
+}
+
+/* ---------- loading ---------- */
+async function loadAll(){
+  const {data:{session}} = await sb.auth.getSession();
+  S.session=session; S.uid=session?.user?.id || null;
+  if(!session){ S.load='signedout'; render(); return; }
+  const since=addDays(localToday(),-60);
+  const [me,pl,kyc,pk,dy,st] = await Promise.all([
+    sb.from('profiles').select('id,display_name,role,status,country,created_at').eq('id',S.uid).maybeSingle(),
+    sb.from('profiles').select('id,display_name,status,country,created_at'),
+    sb.from('player_private').select('id,full_name,dob,country'),
+    sb.from('picks').select('id,player_id,batch,home_team,away_team,competition,kickoff_at,wh_link,market,sel,fx_key').gte('batch',since).order('created_at'),
+    sb.from('days').select('*').gte('batch',since),
+    sb.from('settings').select('place_time,tz,buffer_hours,daily_cap,share_pct').eq('id',1).maybeSingle()
+  ]);
+  const bad=[me,pl,kyc,pk,dy,st].find(r=>r.error);
+  S.loadError = bad ? cleanError(bad.error) : '';
+  S.me=me.data||null; S.owner=S.me?.role==='admin';
+  S.players={}; S.approvals={};
+  for (const p of (pl.data||[])){ S.players[p.id]={pseudo:p.display_name, country:p.country, at:Date.parse(p.created_at)}; S.approvals[p.id]=p.status; }
+  S.kyc={}; for (const k of (kyc.data||[])) S.kyc[k.id]={name:k.full_name, dob:k.dob, country:k.country};
+  S.bets={};
+  for (const r of (pk.data||[])){
+    const b=(S.bets[r.player_id] ||= {days:{}}); (b.days[r.batch] ||= []).push({
+      id:r.id, market:r.market, sel:r.sel,
+      fx:{home:r.home_team, away:r.away_team, comp:r.competition, ko:Date.parse(r.kickoff_at), link:r.wh_link||'', key:r.fx_key}});
+  }
+  S.days={}; for (const d of (dy.data||[])) S.days[d.batch]={status:d.status, excluded:d.excluded||{}, paid:d.paid||{}, betRef:d.bet_ref, returns:d.returns==null?null:+d.returns, sharePct:d.share_pct==null?null:+d.share_pct};
+  if (st.data) S.settings={placeTime:String(st.data.place_time).slice(0,5), tz:st.data.tz, bufferH:+st.data.buffer_hours, cap:+st.data.daily_cap, sharePct:+st.data.share_pct};
+  S.load='ready'; render();
+}
+
+/* ---------- shared bits ---------- */
+function statusPill(st, tiny){
+  const map={open:['Open','good'],locked:['Locked','warn'],approved:['Slip approved','warn'],placed:['Placed','warn'],settled:['Settled','neutral']};
+  const [t,c]=map[st||'open']; return h('span',{class:'pill '+c, style: tiny?'font-size:.62rem':null}, t);
+}
+function dayChips(dates){
+  if(!dates.length) return null;
+  return h('div',{class:'chips',role:'group','aria-label':'Placement day'},
+    dates.map(d=>h('button',{class:'chip','aria-pressed':String(d===S.date),onclick:()=>{S.date=d;S.armed=null;S.slipText=null;render();}},
+      (d===nextBatch()?'Next · ':'')+fmtDate(d), statusPill(dayStatus(d),true))));
+}
+function clockStrip(b){
+  const c=cfg(); const total=countPicks(livePicks(b)); const open=dayStatus(b)==='open';
+  const pct=c.cap>0?Math.min(100,total/c.cap*100):0;
+  return h('div',{class:'clock'},
+    h('div',{},h('span',{class:'label'},open?'Picks close':'Picks closed'),h('b',{},fmtWhen(lockAt(b))),h('span',{class:'small muted'},'Organiser places bets then')),
+    h('div',{},h('span',{class:'label'},'Matches allowed from'),h('b',{},fmtWhen(earliestKickoff(b))),h('span',{class:'small muted'},'Kick-off in your time')),
+    h('div',{},h('span',{class:'label'},'Pot for this day'),h('b',{},money(total*STAKE)+(c.cap>0?' of '+money(c.cap):'')),
+      c.cap>0? h('div',{class:'meter'+(total>=c.cap?' full':'')},h('i',{style:'width:'+pct+'%'})) : h('span',{class:'small muted'},'No daily limit')));
+}
+function renderHeader(){
+  const c=cfg();
+  document.getElementById('rule').textContent = `$${STAKE} per pick on any William Hill fixture · bets placed daily at ${c.placeTime} (${c.tz.replace(/_/g,' ')})${c.cap>0?' · up to $'+c.cap+' a day':''} · ${c.sharePct}% of profit shared`;
+  const me=document.getElementById('me'); me.replaceChildren();
+  const tabs=document.getElementById('tabs');
+  tabs.hidden = S.load!=='ready' || S.recovery;
+  if (S.load!=='ready'){ if(S.load==='signedout') me.append(h('span',{class:'pill neutral'},'Signed out')); return; }
+  const st=statusOf(S.uid);
+  if (S.owner) me.append(h('span',{class:'pill solid'},'Organiser'));
+  if (st==='unregistered') me.append(h('span',{class:'pill neutral'},'Not registered'));
+  else me.append(h('span',{class:'small'}, pseudo(S.uid)), h('span',{class:'pill '+({approved:'good',pending:'warn',rejected:'bad'}[st])}, st));
+  me.append(h('button',{class:'btn ghost small',onclick:async()=>{ await sb.auth.signOut(); S.draft={fx:{},f:{},goals:{}}; location.hash='#bet'; loadAll(); }},'Sign out'));
+  document.querySelector('[data-tab="organiser"]').hidden = !S.owner;
+}
+
+/* ---------- sign in / sign up ---------- */
+function viewAuth(){
+  const msg = S.authMsg ? h('p',{class:'small',role:'status'},S.authMsg) : null;
+  return [h('section',{},
+    h('p',{class:'muted'},'Sign in to place picks. New players create an account first, then register in the Players tab and wait for the organiser’s approval.'),
+    h('div',{class:'auth'},
+      h('form',{class:'panel',onsubmit:signIn},h('h3',{},'Sign in'),
+        h('label',{class:'field'},'Email',h('input',{id:'a-email',type:'email',required:true,autocomplete:'email'})),
+        h('label',{class:'field'},'Password',h('input',{id:'a-pass',type:'password',required:true,autocomplete:'current-password'})),
+        h('div',{class:'row'},h('button',{class:'btn',type:'submit'},'Sign in'),h('button',{class:'btn ghost',type:'button',onclick:forgot},'Forgot password'))),
+      h('form',{class:'panel',onsubmit:signUp},h('h3',{},'Create an account'),
+        h('label',{class:'field'},'Email',h('input',{id:'n-email',type:'email',required:true,autocomplete:'email'})),
+        h('label',{class:'field'},'Password (8 characters or more)',h('input',{id:'n-pass',type:'password',required:true,minlength:'8',autocomplete:'new-password'})),
+        h('div',{},h('button',{class:'btn go',type:'submit'},'Create account')))),
+    msg)];
+}
+async function signIn(e){ e.preventDefault();
+  const {error}=await sb.auth.signInWithPassword({email:document.getElementById('a-email').value.trim(), password:document.getElementById('a-pass').value});
+  if(error){ S.authMsg=error.message; render(); } else { S.authMsg=''; loadAll(); } }
+async function signUp(e){ e.preventDefault();
+  const email=document.getElementById('n-email').value.trim(), password=document.getElementById('n-pass').value;
+  const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:'Player'},emailRedirectTo:location.origin+location.pathname}});
+  if(error){ S.authMsg=error.message; render(); return; }
+  if(data.session){ S.authMsg=''; location.hash='#players'; loadAll(); }
+  else { S.authMsg='Account created. Open the confirmation email we sent to '+email+', then sign in here.'; render(); } }
+async function forgot(){
+  const email=document.getElementById('a-email').value.trim();
+  if(!email){ S.authMsg='Type your email in the Sign in box first.'; render(); return; }
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  S.authMsg = error ? error.message : 'If that email has an account, a reset link is on its way.'; render(); }
+function viewRecovery(){
+  return [h('form',{class:'panel',style:'max-width:420px',onsubmit:async e=>{ e.preventDefault();
+      const {error}=await sb.auth.updateUser({password:document.getElementById('r-new').value});
+      if(error) toast(error.message); else { S.recovery=false; toast('Password changed'); loadAll(); } }},
+    h('h3',{},'Choose a new password'),
+    h('label',{class:'field'},'New password (8 characters or more)',h('input',{id:'r-new',type:'password',required:true,minlength:'8',autocomplete:'new-password'})),
+    h('div',{},h('button',{class:'btn go',type:'submit'},'Save password')))];
+}
+
+/* ---------- place picks ---------- */
+function viewBet(){
+  const out=[]; const st=statusOf(S.uid);
+  if (st==='unregistered') out.push(h('div',{class:'callout'},h('b',{},'Register to play'),h('p',{},'Pick a pseudo and register in Players. The organiser approves each player before they can bet.'),h('div',{},h('a',{href:'#players'},'Go to registration →'))));
+  else if (st==='pending') out.push(h('div',{class:'callout'},h('b',{},'Waiting for approval'),h('p',{},'Your registration is in. You can place picks once the organiser approves it.')));
+  else if (st==='rejected') out.push(h('div',{class:'callout bad'},h('b',{},'Registration not approved'),h('p',{},'Speak to the organiser if you think this is a mistake.')));
+  if (st!=='approved' && !S.owner) return out;
+
+  ensureDate();
+  const b=S.date; const nb=nextBatch(); const open=dayStatus(b)==='open'; const approved=st==='approved';
+  const c=cfg(); const total=countPicks(livePicks(b)); const full=c.cap>0 && total>=c.cap;
+  const ex=excludedSet(b); const minKo=earliestKickoff(b);
+  out.push(h('section',{},h('div',{class:'row between'},h('h2',{},(b===nb?'Next placement · ':'Placement · ')+fmtDate(b)),statusPill(dayStatus(b))),dayChips(allDates()),clockStrip(b),
+    full && open ? h('div',{class:'callout'},h('b',{},'This day’s pot is full'),h('p',{class:'small'},'The $'+c.cap+' limit is reached. New picks open for the next placement day once this one locks.')) : null));
+
+  if (approved && b===nb && open && !full){
+    const f=S.draft.f;
+    out.push(h('div',{class:'panel'},
+      h('div',{},h('h3',{},'Add a fixture from William Hill'),h('p',{class:'small muted'},'Any football match William Hill offers that kicks off after '+fmtWhen(minKo)+' (your time). Copy the team names as William Hill shows them. Pasting the match link helps.')),
+      h('form',{class:'grid',onsubmit:addFixture},
+        h('label',{},'Home team',h('input',{id:'f-home',required:true,maxlength:'40',value:f.home||'',oninput:e=>f.home=e.target.value})),
+        h('label',{},'Away team',h('input',{id:'f-away',required:true,maxlength:'40',value:f.away||'',oninput:e=>f.away=e.target.value})),
+        h('label',{},'Competition',h('input',{id:'f-comp',maxlength:'40',placeholder:'e.g. Premier League',value:f.comp||'',oninput:e=>f.comp=e.target.value})),
+        h('label',{},'Match date (your time)',h('input',{id:'f-date',type:'date',required:true,min:localToday(),value:f.date||'',oninput:e=>f.date=e.target.value})),
+        h('label',{},'Kick-off (your time)',h('input',{id:'f-time',type:'time',required:true,value:f.time||'',oninput:e=>f.time=e.target.value})),
+        h('label',{},'William Hill link (optional)',h('input',{id:'f-link',type:'url',placeholder:'https://sports.williamhill.com/…',value:f.link||'',oninput:e=>f.link=e.target.value})),
+        h('div',{class:'wide row'},h('button',{class:'btn',type:'submit'},'Add fixture'),h('a',{href:WH_FOOTBALL,target:'_blank',rel:'noopener',class:'small'},'Browse William Hill football ↗')))));
+  }
+
+  const fxs=[...fixturesFor(b).values()].sort((x,y)=>koOf(x.fx)-koOf(y.fx)||fxLabel(x.fx).localeCompare(fxLabel(y.fx)));
+  const list=h('section',{},h('div',{class:'label'},'Fixtures for this placement · each pick costs $'+STAKE));
+  if(!fxs.length) list.append(h('div',{class:'empty'}, open ? 'Nobody has picked a fixture yet. Add one above.' : 'No fixtures were picked for this placement.'));
+  for (const {fx,count} of fxs){
+    const k=fxKey(fx); const void_=!!ex[k]; const tooSoon=koOf(fx)<minKo;
+    const can = approved && open && !full && !tooSoon && !void_ && b===nb;
+    const g = S.draft.goals[k] || (S.draft.goals[k]={h:'',a:''});
+    list.append(h('div',{class:'fixture'},
+      h('div',{},h('div',{class:'teams'},fx.home,h('span',{},'v'),fx.away),
+        h('div',{class:'small muted'},[fxMeta(fx), count? count+' pick'+(count>1?'s':''):''].filter(Boolean).join(' · '),
+          fx.link? [' · ',h('a',{href:fx.link,target:'_blank',rel:'noopener'},'William Hill ↗')]:null),
+        void_? h('span',{class:'pill bad'},'Not on William Hill · refunded') : (tooSoon && open)? h('span',{class:'pill neutral'},'Too close to kick-off') : null),
+      h('div',{class:'markets'},
+        h('button',{class:'pick',disabled:!can,onclick:()=>addPick(fx,'win','home')},fx.home+' win'),
+        h('button',{class:'pick',disabled:!can,onclick:()=>addPick(fx,'draw','draw')},'Draw'),
+        h('button',{class:'pick',disabled:!can,onclick:()=>addPick(fx,'win','away')},fx.away+' win'),
+        h('span',{class:'row',style:'gap:4px'},
+          h('input',{id:'g-h-'+k,class:'goal',type:'number',min:'0',max:'20',inputmode:'numeric','aria-label':fx.home+' goals',value:g.h,disabled:!can,oninput:e=>g.h=e.target.value}),
+          h('span',{class:'muted'},'–'),
+          h('input',{id:'g-a-'+k,class:'goal',type:'number',min:'0',max:'20',inputmode:'numeric','aria-label':fx.away+' goals',value:g.a,disabled:!can,oninput:e=>g.a=e.target.value}),
+          h('button',{class:'pick',disabled:!can,onclick:()=>{ const a=parseInt(g.h,10), bb=parseInt(g.a,10); if(isNaN(a)||isNaN(bb)||a<0||bb<0||a>20||bb>20){toast('Enter both scores first.');return;} g.h='';g.a=''; addPick(fx,'score',a+'-'+bb); }},'Add score'))
+      )));
+  }
+  out.push(list);
+
+  if (approved){
+    const mine = S.bets[S.uid]?.days?.[b]||[];
+    const live = mine.filter(p=>!ex[fxKey(p.fx)]);
+    out.push(h('section',{},h('h3',{},'Your slip'),
+      mine.length ? h('div',{class:'slip'},
+        h('ol',{}, mine.map(p=>{ const v=!!ex[fxKey(p.fx)]; return h('li',{class:v?'void':null},
+          h('div',{},h('div',{},pickWhat(p)),h('div',{class:'small muted'},fxLabel(p.fx)+(v?' · refunded, not on William Hill':''))),
+          h('span',{class:'num'},v?'$0.00':money(STAKE)),
+          open? h('button',{class:'x','aria-label':'Remove pick',title:'Remove',onclick:()=>removePick(p.id)},'×') : h('span',{})); })),
+        h('div',{class:'total'},h('span',{},live.length+' pick'+(live.length===1?'':'s')),h('span',{},'Stake due '+money(live.length*STAKE))),
+        S.days[b]?.paid?.[S.uid] ? h('p',{class:'small',style:'color:var(--good);margin-top:6px'},'Stake received by the organiser') : h('p',{class:'small muted',style:'margin-top:6px'},'Pay your stake to the organiser before picks close.'))
+      : h('div',{class:'empty'}, open?'No picks yet. Add a fixture or tap a result above to add a $1 pick.':'You had no picks for this placement.')));
+  }
+  return out;
+}
+function addFixture(e){
+  e.preventDefault();
+  const g=id=>document.getElementById(id).value.trim();
+  const date=g('f-date'), time=g('f-time');
+  const ko=new Date(date+'T'+time).getTime();
+  const fx={home:g('f-home'),away:g('f-away'),comp:g('f-comp'),ko};
+  const link=whLink(g('f-link'));
+  if(link===null){ toast('The link must be a williamhill.com page, or leave it empty.'); return; }
+  if(link) fx.link=link;
+  if(!fx.home||!fx.away||!date||!time||isNaN(ko)) return;
+  if(slug(fx.home)===slug(fx.away)){ toast('Home and away teams must be different.'); return; }
+  const nb=nextBatch(); const minKo=earliestKickoff(nb);
+  if(ko<minKo){ toast('Too close to kick-off. Bets are placed at '+fmtWhen(lockAt(nb))+', so pick a match from '+fmtWhen(minKo)+'.'); return; }
+  const existing=fixturesFor(nb).get(fxKey(fx));
+  if(!existing) (S.draft.fx[nb] ||= []).push(fx);
+  S.draft.f={}; S.date=nb;
+  toast(existing?'That fixture is already listed. Pick your result below.':'Fixture added. Now pick your result.');
+  render();
+}
+function addPick(fx, market, sel){
+  const b=nextBatch();
+  run(async()=>{
+    const r = await sb.from('picks').insert({home_team:fx.home, away_team:fx.away, competition:fx.comp||'', kickoff_at:new Date(koOf(fx)).toISOString(), wh_link:fx.link||null, market, sel});
+    if(!r.error && S.draft.fx[b]) S.draft.fx[b]=S.draft.fx[b].filter(d=>fxKey(d)!==fxKey(fx));
+    return r;
+  }, 'Pick added · $'+STAKE);
+}
+function removePick(id){ run(()=>sb.from('picks').delete().eq('id',id), 'Pick removed'); }
+
+/* ---------- bet list ---------- */
+function viewList(){
+  const st=statusOf(S.uid);
+  if(st!=='approved' && !S.owner) return [h('div',{class:'empty'},'The bet list is open to approved players.')];
+  const out=[]; ensureDate(); const b=S.date; const day=S.days[b]||{};
+  const map=effective(b); const ex=excludedSet(b);
+  const uids=Object.keys(map).sort((x,y)=>pseudo(x).localeCompare(pseudo(y)));
+  const nPicks=countPicks(map);
+  out.push(h('section',{},h('div',{class:'row between'},h('h2',{},'Bet list · '+fmtDate(b)),statusPill(dayStatus(b))),dayChips(allDates()),
+    h('div',{class:'stats'},
+      h('div',{},h('span',{class:'label'},'Players'),h('b',{},uids.length)),
+      h('div',{},h('span',{class:'label'},'Picks'),h('b',{},nPicks)),
+      h('div',{},h('span',{class:'label'},'Total staked'),h('b',{},money(nPicks*STAKE))),
+      h('div',{},h('span',{class:'label'},'Profit share'),h('b',{},(day.sharePct ?? cfg().sharePct)+'%'))),
+    dayStatus(b)==='open' ? h('p',{class:'small muted'},'Live list. It freezes when picks close at '+fmtWhen(lockAt(b))+'.') : null,
+    Object.values(ex).some(Boolean) ? h('p',{class:'small muted'},'Picks on fixtures the organiser could not find on William Hill are left out and refunded.') : null));
+  if(!uids.length) out.push(h('div',{class:'empty'},'No picks for this placement yet.'));
+  else out.push(h('div',{class:'tablewrap'},h('table',{},
+    h('thead',{},h('tr',{},h('th',{},'Pseudo'),h('th',{},'Picks'),h('th',{class:'r'},'Stake'))),
+    h('tbody',{},uids.map(u=>h('tr',{},h('td',{},pseudo(u)),
+      h('td',{},map[u].map(p=>h('div',{},pickWhat(p),h('span',{class:'muted small'},' · '+fxLabel(p.fx))))),
+      h('td',{class:'r num'},money(map[u].length*STAKE))))))));
+  if(day.status==='settled'){
+    const s=settlement(map, day.returns||0, day.sharePct ?? 50);
+    out.push(h('section',{},h('h3',{},'Settlement'),
+      h('div',{class:'stats'},
+        h('div',{},h('span',{class:'label'},'William Hill return'),h('b',{},money(day.returns||0))),
+        h('div',{},h('span',{class:'label'},'Profit after stakes'),h('b',{},money(s.profit))),
+        h('div',{},h('span',{class:'label'},'Shared pool'),h('b',{},money(s.pool))),
+        h('div',{},h('span',{class:'label'},'Each player gets'),h('b',{},money(s.perHead)))),
+      s.profit<=0 ? h('p',{class:'small muted'},'No profit on this placement, so there is nothing to share.') : null));
+  }
+  return out;
+}
+
+/* ---------- players ---------- */
+function viewPlayers(){
+  const out=[]; const st=statusOf(S.uid);
+  if(st==='unregistered'){
+    out.push(h('section',{},h('h2',{},'Register'),h('p',{class:'muted'},'Each player registers once. The organiser checks your details and approves you before you can bet.'),
+      h('form',{class:'grid',onsubmit:register},
+        h('label',{},'Full name',h('input',{id:'r-name',required:true,autocomplete:'name',maxlength:'80'})),
+        h('label',{},'Pseudo (shown to everyone)',h('input',{id:'r-pseudo',required:true,maxlength:'24',pattern:'[A-Za-z0-9_.\\- ]{2,24}',title:'2–24 letters, numbers, spaces, _ . -'})),
+        h('label',{},'Date of birth',h('input',{id:'r-dob',type:'date',required:true,max:localToday()})),
+        h('label',{},'Country',h('input',{id:'r-country',required:true,maxlength:'56',autocomplete:'country-name'})),
+        h('label',{class:'check'},h('input',{id:'r-ok',type:'checkbox',required:true}),h('span',{},'I am 18 or over, and betting is legal where I live. My name and date of birth are visible only to the organiser.')),
+        h('div',{},h('button',{class:'btn go',type:'submit'},'Register')))));
+  } else {
+    const k=S.kyc[S.uid];
+    out.push(h('section',{},h('h2',{},'Your registration'),h('div',{class:'callout'},
+      h('div',{class:'row'},h('b',{},pseudo(S.uid)),h('span',{class:'pill '+({approved:'good',pending:'warn',rejected:'bad'}[st])},st)),
+      k? h('p',{class:'small muted'},k.name+' · born '+k.dob+' · '+k.country):null)));
+  }
+  const approved=Object.keys(S.players).filter(u=>statusOf(u)==='approved').sort((a,b)=>pseudo(a).localeCompare(pseudo(b)));
+  if(st==='approved'||S.owner) out.push(h('section',{},h('div',{class:'row between'},h('h3',{},'Approved players'),h('span',{class:'num muted'},approved.length+' player'+(approved.length===1?'':'s'))),
+    approved.length? h('div',{class:'tablewrap'},h('table',{},h('thead',{},h('tr',{},h('th',{},'Pseudo'),h('th',{},'Country'))),
+      h('tbody',{},approved.map(u=>h('tr',{},h('td',{},pseudo(u)),h('td',{},S.players[u].country||'—'))))))
+    : h('div',{class:'empty'},'No approved players yet.')));
+  return out;
+}
+function register(e){
+  e.preventDefault();
+  const v=id=>document.getElementById(id).value.trim();
+  const age=ageFrom(v('r-dob'));
+  if(age==null||age<18){ toast('You must be 18 or over to join.'); return; }
+  run(()=>sb.rpc('register_player',{p_pseudo:v('r-pseudo'), p_full_name:v('r-name'), p_dob:v('r-dob'), p_country:v('r-country')}), 'Registered. Waiting for approval.');
+}
+
+/* ---------- organiser ---------- */
+function setApproval(u,v){ run(()=>sb.rpc('set_player_status',{p_player:u, p_status:v}), v==='approved'?'Player approved':v==='rejected'?'Player suspended':'Status changed'); }
+function dayWrite(b, patch){
+  const map={status:'status',excluded:'excluded',paid:'paid',betRef:'bet_ref',returns:'returns',sharePct:'share_pct',approvedAt:'approved_at',placedAt:'placed_at',settledAt:'settled_at'};
+  const row={batch:b, updated_at:new Date().toISOString()}; for(const [k,v] of Object.entries(patch)) row[map[k]]=v;
+  return sb.from('days').upsert(row,{onConflict:'batch'});
+}
+function viewOrganiser(){
+  if(!S.owner) return [h('div',{class:'empty'},'Only the organiser can open this section.')];
+  const out=[]; const c=cfg();
+  const pend=Object.keys(S.players).filter(u=>statusOf(u)==='pending');
+  out.push(h('section',{},h('div',{class:'row between'},h('h2',{},'Approvals'),h('span',{class:'num muted'},pend.length+' waiting')),
+    pend.length? h('div',{class:'tablewrap'},h('table',{},h('thead',{},h('tr',{},h('th',{},'Pseudo'),h('th',{},'Name'),h('th',{},'Age'),h('th',{},'Country'),h('th',{},''))),
+      h('tbody',{},pend.map(u=>{ const k=S.kyc[u]||{}; const age=ageFrom(k.dob);
+        return h('tr',{},h('td',{},pseudo(u)),h('td',{},k.name||'—'),h('td',{class:'num',style: age!=null&&age<18?'color:var(--bad)':null},age??'—'),h('td',{},k.country||'—'),
+          h('td',{},h('div',{class:'row'},h('button',{class:'btn go',disabled:age==null||age<18,onclick:()=>setApproval(u,'approved')},'Approve'),h('button',{class:'btn ghost',onclick:()=>setApproval(u,'rejected')},'Reject')))); }))))
+    : h('p',{class:'muted small'},'Nobody is waiting for approval.')));
+
+  const everyone=Object.keys(S.players).filter(u=>statusOf(u)!=='unregistered').sort((a,b)=>pseudo(a).localeCompare(pseudo(b)));
+  const signedUp=Object.keys(S.players).filter(u=>statusOf(u)==='unregistered').length;
+  const picksOf=u=>Object.values(S.bets[u]?.days||{}).reduce((s,l)=>s+(l?.length||0),0);
+  const cnt=s=>everyone.filter(u=>statusOf(u)===s).length;
+  out.push(h('section',{},h('div',{class:'row between'},h('h2',{},'All players'),
+      h('span',{class:'small muted num'},everyone.length+' registered · '+cnt('approved')+' approved · '+cnt('pending')+' waiting · '+cnt('rejected')+' suspended'+(signedUp?' · '+signedUp+' signed up, not registered':''))),
+    everyone.length? h('div',{class:'tablewrap'},h('table',{},h('thead',{},h('tr',{},h('th',{},'Pseudo'),h('th',{},'Full name'),h('th',{},'Born'),h('th',{class:'r'},'Age'),h('th',{},'Country'),h('th',{},'Joined'),h('th',{class:'r'},'Picks'),h('th',{},'Status'),h('th',{},''))),
+      h('tbody',{},everyone.map(u=>{ const k=S.kyc[u]||{}; const age=ageFrom(k.dob); const st=statusOf(u);
+        return h('tr',{},h('td',{},h('b',{},pseudo(u))),h('td',{},k.name||'—'),h('td',{class:'num'},k.dob||'—'),h('td',{class:'r num'},age??'—'),h('td',{},k.country||S.players[u].country||'—'),
+          h('td',{class:'small muted'},S.players[u].at?fmtWhen(S.players[u].at):'—'),h('td',{class:'r num'},String(picksOf(u))),
+          h('td',{},h('span',{class:'pill '+({approved:'good',pending:'warn',rejected:'bad'}[st])},st==='rejected'?'suspended':st)),
+          h('td',{},st==='approved'? h('button',{class:'btn ghost small',onclick:()=>arm('rev-'+u,()=>setApproval(u,'rejected'))},S.armed==='rev-'+u?'Click again':'Suspend')
+            : h('button',{class:'btn ghost small',disabled:age==null||age<18,onclick:()=>setApproval(u,'approved')},'Approve'))); }))))
+    : h('div',{class:'empty'},'No players yet. Send players the website link; each one creates an account, registers in the Players tab and appears here.')));
+
+  ensureDate();
+  out.push(viewAgent(S.date, allDates()));
+
+  out.push(h('section',{},h('h3',{},'Daily schedule and pool rule'),
+    h('form',{class:'grid',onsubmit:saveSettings},
+      h('label',{},'Daily placement time',h('input',{id:'s-time',type:'time',required:true,value:c.placeTime})),
+      h('label',{},'Safety margin before kick-off (hours)',h('input',{id:'s-buf',type:'number',min:'0',max:'24',step:'0.5',value:String(c.bufferH)})),
+      h('label',{},'Daily stake limit ($, 0 = none)',h('input',{id:'s-cap',type:'number',min:'0',step:'1',value:String(c.cap)})),
+      h('label',{},'Share of profit given to players (%)',h('input',{id:'s-pct',type:'number',min:'0',max:'100',step:'1',value:String(c.sharePct)})),
+      h('p',{class:'wide small muted'},'Saved time zone: '+c.tz.replace(/_/g,' ')+'. Saving uses this device’s time zone ('+MY_TZ.replace(/_/g,' ')+'). Picks lock at the placement time each day, and players can only pick matches that kick off after it plus the margin.'),
+      h('div',{class:'wide'},h('button',{class:'btn',type:'submit'},'Save schedule')))));
+  return out;
+}
+function saveSettings(e){
+  e.preventDefault();
+  const n=(id,lo,hi,d)=>{ const x=parseFloat(document.getElementById(id).value); return isNaN(x)?d:Math.max(lo,Math.min(hi,x)); };
+  const t=document.getElementById('s-time').value||'08:00';
+  run(()=>sb.from('settings').update({place_time:t, tz:MY_TZ, buffer_hours:n('s-buf',0,24,1), daily_cap:Math.round(n('s-cap',0,100000,50)), share_pct:n('s-pct',0,100,50)}).eq('id',1), 'Schedule saved: bets placed daily at '+t);
+}
+
+const gKey = g => fxKey(g.fx)+'|'+g.market+'|'+g.sel;
+const enteredMem={};
+function enteredGet(b){ try{ const v=localStorage.getItem('dps-entered-'+b); if(v) return JSON.parse(v); }catch(_){} return {...(enteredMem[b]||{})}; }
+function enteredSet(b,o){ enteredMem[b]=o; try{ localStorage.setItem('dps-entered-'+b, JSON.stringify(o)); }catch(_){} }
+function slipText(b,groups,s0){
+  return 'Dollar Pick Syndicate · placement '+fmtDate(b)+'\n'+groups.length+' singles · total '+money(s0.stakes)+'\n\n'+
+    groups.map((g,i)=>(i+1)+'. '+fxLabel(g.fx)+(g.fx.comp?' ('+g.fx.comp+')':'')+' · '+pickWhat(g)+' · stake '+money(g.count*STAKE)).join('\n');
+}
+function copySlip(b,groups,s0){
+  const t=slipText(b,groups,s0);
+  const fallback=()=>{ S.slipText=b; render(); toast('Copy is blocked here; select the text below instead.'); };
+  try{ navigator.clipboard.writeText(t).then(()=>toast('Slip copied'),fallback); }catch(_){ fallback(); }
+}
+
+function viewAgent(b, dates){
+  const day=S.days[b]||{}; const st=dayStatus(b);
+  const raw=rawPicks(b); const map=effective(b); const groups=consolidate(map);
+  const ex=excludedSet(b); const fxs=[...fixturesFor(b).values()].sort((x,y)=>koOf(x.fx)-koOf(y.fx));
+  const s0=settlement(map,0,0); const paid=day.paid||{};
+  const unpaid=s0.bettors.filter(u=>!paid[u]);
+  const nEx=fxs.filter(f=>ex[fxKey(f.fx)]).length;
+  const kept=fxs.filter(f=>!ex[fxKey(f.fx)]).map(f=>koOf(f.fx)); const firstKo=kept.length?Math.min(...kept):null;
+  const order=['open','locked','approved','placed','settled']; const at=order.indexOf(st);
+  const cls=i=> i<at?'step done': i===at?'step now':'step later';
+  const steps=h('ol',{class:'steps'});
+
+  steps.append(h('li',{class:cls(0),'data-n':'1'},h('h3',{},'Picks lock automatically'),
+    h('p',{class:'small muted'},(st==='open'?'Locks at ':'Locked at ')+fmtWhen(lockAt(b))+'. '+Object.keys(raw).length+' players, '+countPicks(raw)+' picks on '+fxs.length+' fixture'+(fxs.length===1?'':'s')+'.'),
+    firstKo && at<3 ? h('p',{class:'small',style:'color:var(--warn)'},'First kick-off: '+fmtWhen(firstKo)+'. Place the bets before then.') : null));
+
+  const canToggle = st==='open'||st==='locked';
+  const check=h('li',{class:cls(1),'data-n':'2'},h('h3',{},'Check each fixture is on William Hill'));
+  if(fxs.length){
+    check.append(h('p',{class:'small muted'},'Players chose these fixtures themselves. Untick any you cannot find on William Hill; its picks are dropped from the slip and refunded.'));
+    check.append(h('div',{class:'tablewrap'},h('table',{},h('thead',{},h('tr',{},h('th',{},'Fixture'),h('th',{class:'r'},'Picks'),h('th',{},'Find it'),h('th',{class:'r'},'Available'))),
+      h('tbody',{},fxs.map(({fx,count})=>{ const k=fxKey(fx); const v=!!ex[k];
+        return h('tr',{class:v?'void':null},h('td',{},fxLabel(fx),h('div',{class:'small muted'},fxMeta(fx)||'No details')),h('td',{class:'r num'},String(count)),
+          h('td',{},h('a',{href:fx.link||WH_FOOTBALL,target:'_blank',rel:'noopener',class:'small'},fx.link?'Player link ↗':'Search William Hill ↗')),
+          h('td',{class:'r'},h('input',{type:'checkbox',id:'av-'+k,checked:!v,disabled:!canToggle,'aria-label':fxLabel(fx)+' is on William Hill',
+            onchange:e=>run(()=>dayWrite(b,{excluded:{...ex,[k]:!e.target.checked}}), e.target.checked?'Fixture kept':'Fixture removed and refunded')}))); })))));
+  } else check.append(h('p',{class:'small muted'},'No fixtures picked yet.'));
+  steps.append(check);
+
+  const checks=[
+    [s0.bettors.length>0, s0.bettors.length+' player'+(s0.bettors.length===1?'':'s')+' with valid picks'],
+    [nEx===0, nEx? nEx+' fixture'+(nEx>1?'s':'')+' not on William Hill; those picks are refunded' : 'Every fixture kept on the slip'],
+    [unpaid.length===0, unpaid.length? unpaid.length+' stake'+(unpaid.length>1?'s':'')+' not marked received: '+unpaid.map(pseudo).join(', ') : 'All stakes marked received'],
+  ];
+  const review=h('li',{class:cls(2),'data-n':'3'},h('h3',{},'Review and your permission'));
+  if(s0.picks){
+    review.append(h('ul',{class:'small',style:'margin:0;padding-left:18px'},checks.map(([ok,t])=>h('li',{style:'color:'+(ok?'var(--good)':'var(--warn)')},t))));
+    const ent=enteredGet(b); const nEnt=groups.filter(g=>ent[gKey(g)]).length; const placing=st==='approved';
+    review.append(h('div',{class:'row between'},
+      h('p',{class:'small'},h('b',{},groups.length+' single'+(groups.length===1?'':'s')+' to enter, '+money(s0.stakes)+' in total. '),'Players who picked the same result share one bet, so you enter one line per selection, not one per player.'),
+      h('button',{class:'btn ghost',onclick:()=>copySlip(b,groups,s0)},'Copy slip')));
+    if(S.slipText===b) review.append(h('pre',{class:'text'},slipText(b,groups,s0)));
+    review.append(h('div',{class:'tablewrap'},h('table',{},h('thead',{},h('tr',{},h('th',{},'#'),h('th',{},'Selection'),h('th',{class:'r'},'Players'),h('th',{class:'r'},'Stake to enter'),placing?h('th',{class:'r'},'Entered'):null)),
+      h('tbody',{},groups.map((g,i)=>{ const k=gKey(g); return h('tr',{class:placing&&ent[k]?'void':null},h('td',{class:'num'},String(i+1)),
+        h('td',{},h('b',{},pickWhat(g)),h('div',{class:'small muted'},fxLabel(g.fx)+(g.fx.comp?' · '+g.fx.comp:'')+' · '+fmtWhen(koOf(g.fx)))),
+        h('td',{class:'r num'},String(g.count)),h('td',{class:'r num'},h('b',{},money(g.count*STAKE))),
+        placing? h('td',{class:'r'},h('input',{type:'checkbox',id:'ent-'+i,checked:!!ent[k],'aria-label':'Entered line '+(i+1)+' on William Hill',onchange:e=>{ const o=enteredGet(b); o[k]=e.target.checked; enteredSet(b,o); render(); }})) : null); }),
+        h('tr',{},h('td',{}),h('td',{},h('b',{},'Total')),h('td',{class:'r num'},String(s0.picks)),h('td',{class:'r num'},h('b',{},money(s0.stakes))),placing?h('td',{class:'r num small'},nEnt+' / '+groups.length):null)))));
+    review.append(h('div',{class:'tablewrap'},h('table',{},h('thead',{},h('tr',{},h('th',{},'Player'),h('th',{class:'r'},'Owes'),h('th',{class:'r'},'Received'))),
+      h('tbody',{},s0.bettors.map(u=>h('tr',{},h('td',{},pseudo(u)),h('td',{class:'r num'},money(map[u].length*STAKE)),
+        h('td',{class:'r'},h('input',{type:'checkbox',id:'paid-'+u,checked:!!paid[u],'aria-label':'Stake received from '+pseudo(u),onchange:e=>run(()=>dayWrite(b,{paid:{...paid,[u]:e.target.checked}}))}))))))));
+    if(st==='locked') review.append(h('div',{class:'callout'},h('b',{},'Permission needed'),
+      h('p',{class:'small'},'Approving lets this slip go to William Hill: '+groups.length+' selections, '+money(s0.stakes)+' in total. You place it yourself in your own account.'),
+      h('div',{},h('button',{class:'btn go'+(S.armed==='approve'?' armed':''),onclick:()=>arm('approve',()=>run(()=>dayWrite(b,{status:'approved',approvedAt:new Date().toISOString()}),'Slip approved'))},S.armed==='approve'?'Click again to approve '+money(s0.stakes):'Approve slip'))));
+    else if(st==='open') review.append(h('p',{class:'small muted'},'You can approve once picks lock at '+fmtWhen(lockAt(b))+'.'));
+  } else review.append(h('p',{class:'small muted'},'Nothing to review yet.'));
+  steps.append(review);
+
+  const place=h('li',{class:cls(3),'data-n':'4'},h('h3',{},'Place on William Hill'));
+  if(st==='approved'){
+    place.append(h('p',{class:'small'},'Sign in to William Hill yourself. Add every selection from the slip above to one bet slip, choose Singles, type each line’s stake, and tick it off above. Place the slip once, then paste the receipt numbers here.'),
+      h('div',{},h('a',{href:WH_FOOTBALL,target:'_blank',rel:'noopener'},'Open William Hill football ↗')),
+      h('form',{class:'row',onsubmit:e=>{e.preventDefault();const r=document.getElementById('p-ref').value.trim(); if(!r){toast('Paste the receipt number first.');return;}
+        run(()=>dayWrite(b,{status:'placed',betRef:r,placedAt:new Date().toISOString()}),'Marked as placed');}},
+        h('input',{id:'p-ref',placeholder:'Bet receipt number(s)',style:'flex:1 1 220px','aria-label':'Bet receipt numbers'}),
+        h('button',{class:'btn',type:'submit'},'Mark as placed')));
+  } else if(at>3) place.append(h('p',{class:'small muted'},'Receipt: ',h('span',{class:'num'},day.betRef||'—')));
+  steps.append(place);
+
+  const settle=h('li',{class:cls(4),'data-n':'5'},h('h3',{},'Settle and share'));
+  if(st==='placed'){
+    const ret=parseFloat(S.draft._ret||'0')||0; const pct=cfg().sharePct; const s=settlement(map,ret,pct);
+    settle.append(h('label',{class:'field'},'Total returned by William Hill ($)',h('input',{id:'st-ret',type:'number',min:'0',step:'0.01',value:S.draft._ret||'',style:'width:10em',oninput:e=>{S.draft._ret=e.target.value;render();}})),
+      h('div',{class:'stats'},
+        h('div',{},h('span',{class:'label'},'Profit'),h('b',{},money(s.profit))),
+        h('div',{},h('span',{class:'label'},pct+'% pool'),h('b',{},money(s.pool))),
+        h('div',{},h('span',{class:'label'},'Per player ('+s.bettors.length+')'),h('b',{},money(s.perHead))),
+        h('div',{},h('span',{class:'label'},'Organiser keeps'),h('b',{},money(s.organiser)))),
+      h('div',{},h('button',{class:'btn go'+(S.armed==='settle'?' armed':''),onclick:()=>arm('settle',()=>run(()=>dayWrite(b,{status:'settled',returns:ret,sharePct:pct,settledAt:new Date().toISOString()}),'Placement settled'))},S.armed==='settle'?'Click again to settle':'Confirm settlement')));
+  } else if(st==='settled'){ const s=settlement(map,day.returns||0,day.sharePct??50); settle.append(h('p',{class:'small'},'Returned '+money(day.returns||0)+'. Each of '+s.bettors.length+' players receives '+money(s.perHead)+'.')); }
+  steps.append(settle);
+
+  return h('section',{},h('div',{class:'row between'},h('h2',{},'Placement run · '+fmtDate(b)),statusPill(st)),dayChips(dates),steps);
+}
+
+/* ---------- main render ---------- */
+function render(){
+  const act=document.activeElement; const fid=act&&act.id; let sel=null;
+  try{ if(fid && act.selectionStart!=null) sel=[act.selectionStart,act.selectionEnd]; }catch(_){}
+  const hash=(location.hash||'#bet').slice(1);
+  S.tab=['bet','list','players','organiser'].includes(hash)?hash:'bet';
+  if(S.tab==='organiser'&&!S.owner) S.tab='bet';
+  document.querySelectorAll('#tabs a').forEach(a=>{ if(a.dataset.tab===S.tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  renderHeader();
+  let kids;
+  if(S.recovery) kids=viewRecovery();
+  else if(S.load==='loading') kids=[h('div',{class:'empty'},'Loading the syndicate…')];
+  else if(S.load==='signedout') kids=viewAuth();
+  else kids = S.tab==='list'?viewList(): S.tab==='players'?viewPlayers(): S.tab==='organiser'?viewOrganiser(): viewBet();
+  if(S.loadError && S.load==='ready') kids.unshift(h('div',{class:'callout bad'},h('b',{},'Some data could not load'),h('p',{class:'small'},S.loadError)));
+  document.getElementById('view').replaceChildren(...kids);
+  if(fid){ const el=document.getElementById(fid); if(el){ el.focus(); if(sel&&el.setSelectionRange){ try{el.setSelectionRange(sel[0],sel[1]);}catch(_){} } } }
+}
+window.addEventListener('hashchange',()=>{S.armed=null;render();});
+
+/* ---------- start ---------- */
+sb.auth.onAuthStateChange((event)=>{
+  if(event==='PASSWORD_RECOVERY'){ S.recovery=true; render(); return; }
+  if(event==='SIGNED_IN'||event==='SIGNED_OUT') setTimeout(loadAll,0);
+});
+loadAll();
+setInterval(()=>{ if(document.hidden || S.load!=='ready' || S.recovery) return; const a=document.activeElement; if(a && a!==document.body && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) return; loadAll(); },30000);
+</script>
+</body>
+</html>
